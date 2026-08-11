@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2C4B7E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Evacuación · Citolab</title>
+<style>
+:root{--primary:#2C4B7E;--cyan:#0891B2;--green:#16A34A;--amber:#D97706;--red:#DC2626;--bg:#F1F5F9;--surface:#fff;--text:#1E293B;--muted:#64748B;--border:#E2E8F0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overscroll-behavior:none}
+.hdr{background:var(--primary);color:#fff;padding:0 12px;height:58px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.hdr-back{background:none;border:none;color:#fff;font-size:26px;line-height:1;padding:4px 6px;cursor:pointer;margin-left:-6px}
+.hdr-logo{width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.hdr-info{flex:1;overflow:hidden}
+.hdr-title{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-sub{font-size:12px;opacity:.75;margin-top:1px}
+.hdr-gear{background:none;border:none;color:#fff;font-size:22px;padding:6px;cursor:pointer;flex-shrink:0}
+.screen{display:none}.screen.active{display:block}
+/* Upload */
+#uploadScreen{min-height:calc(100vh - 58px);display:none;align-items:center;justify-content:center;flex-direction:column;padding:32px 24px;text-align:center}
+#uploadScreen.active{display:flex}
+.upload-icon{font-size:64px;margin-bottom:20px}
+.upload-h{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.upload-p{color:var(--muted);font-size:15px;line-height:1.6;margin-bottom:28px}
+.btn-upload{background:var(--primary);color:#fff;border:none;border-radius:14px;padding:18px 36px;font-size:17px;font-weight:700;cursor:pointer;width:100%;max-width:320px;box-shadow:0 4px 16px rgba(44,75,126,.35);margin-bottom:12px}
+.btn-secondary{background:none;color:var(--cyan);border:2px solid var(--cyan);border-radius:14px;padding:14px 36px;font-size:15px;font-weight:600;cursor:pointer;width:100%;max-width:320px;margin-bottom:12px}
+.upload-note{margin-top:8px;font-size:13px;color:var(--muted);background:#FEF3C7;border-radius:10px;padding:10px 14px;max-width:320px;text-align:left;line-height:1.5}
+/* Diag modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:17px;font-weight:700;color:var(--primary);margin-bottom:16px}
+.diag-row{display:flex;gap:8px;margin-bottom:8px;font-size:14px}
+.diag-lbl{color:var(--muted);font-weight:600;min-width:100px;flex-shrink:0}
+.diag-val{color:var(--text);word-break:break-all}
+.diag-code{background:var(--bg);border-radius:8px;padding:10px;font-size:12px;font-family:monospace;color:var(--text);margin-top:8px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto}
+.btn-modal-close{background:var(--primary);color:#fff;border:none;border-radius:12px;padding:14px;width:100%;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px}
+/* Areas */
+#areasScreen{padding:16px;padding-bottom:100px}
+.date-pill{display:inline-flex;align-items:center;gap:6px;background:var(--cyan);color:#fff;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:14px}
+.global-card{background:var(--surface);border-radius:14px;padding:16px 18px;margin-bottom:14px;border:1px solid var(--border);display:flex;align-items:center;gap:16px}
+.global-ring{width:68px;height:68px;border-radius:50%;background:var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+.ring-num{font-size:22px;font-weight:800;line-height:1}
+.ring-of{font-size:12px;opacity:.8}
+.global-right{flex:1}
+.global-label{font-weight:700;color:var(--primary);font-size:15px}
+.global-hint{font-size:12px;color:var(--muted);margin-top:2px}
+.bar-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:10px}
+.bar-fill{height:100%;background:var(--green);border-radius:4px;transition:width .4s ease}
+.area-cards{display:flex;flex-direction:column;gap:10px}
+.area-card{background:var(--surface);border-radius:14px;padding:16px;border:2px solid var(--border);display:flex;align-items:center;gap:12px;cursor:pointer}
+.area-card:active{background:#F8FAFC}
+.area-card.done{border-color:var(--green)}.area-card.going{border-color:var(--amber)}
+.area-icon{font-size:28px;flex-shrink:0}
+.area-info{flex:1;min-width:0}
+.area-name{font-weight:700;font-size:15px}
+.area-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.area-badge{background:var(--border);border-radius:20px;padding:4px 12px;font-size:14px;font-weight:700;color:var(--muted);flex-shrink:0}
+.area-badge.done{background:#DCFCE7;color:var(--green)}
+.chevron{color:var(--border);font-size:20px;flex-shrink:0}
+/* Roll call */
+#rcScreen{padding:14px;padding-bottom:100px}
+.rc-header{background:var(--surface);border-radius:14px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.rc-nums{display:flex;align-items:baseline;gap:4px}
+.rc-big{font-size:40px;font-weight:800;color:var(--primary);line-height:1}
+.rc-sep{font-size:22px;color:var(--muted)}.rc-tot{font-size:22px;font-weight:700;color:var(--muted)}
+.rc-lbl{font-size:12px;color:var(--muted);margin-top:2px}
+.btn-all{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;text-align:center}
+.complete-banner{background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;border-radius:14px;padding:20px;text-align:center;margin-bottom:14px}
+.complete-banner .ck{font-size:52px}
+.complete-banner h2{font-size:20px;font-weight:800;margin:6px 0 4px}
+.complete-banner p{font-size:14px;opacity:.9}
+.section-lbl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:6px 2px;margin-top:4px}
+.worker-list{display:flex;flex-direction:column;gap:8px}
+.worker{background:var(--surface);border-radius:12px;padding:14px;border:2px solid var(--border);display:flex;align-items:center;gap:12px;cursor:pointer;min-height:68px}
+.worker:active{opacity:.85}.worker.yes{border-color:var(--green);background:#F0FDF4}
+.worker-chk{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:#fff;flex-shrink:0}
+.worker.yes .worker-chk{background:var(--green);border-color:var(--green)}
+.worker-body{flex:1;min-width:0}
+.worker-name{font-weight:700;font-size:15px}
+.worker-cargo{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-tag{font-size:11px;padding:3px 8px;border-radius:8px;background:var(--bg);color:var(--muted);white-space:nowrap;flex-shrink:0;max-width:90px;overflow:hidden;text-overflow:ellipsis}
+.loc-tag.manual{background:#EFF6FF;color:#2563EB}
+.remote-box{background:#FEF3C7;border:1px solid #FCD34D;border-radius:12px;padding:14px;margin-top:14px}
+.remote-title{font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px}
+.remote-item{font-size:13px;padding:3px 0}
+.add-card{background:var(--surface);border-radius:12px;border:2px dashed var(--border);margin-top:8px}
+.add-card-trigger{padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--cyan);font-weight:600;font-size:15px}
+.add-card-form{padding:0 14px 14px;display:none}.add-card-form.open{display:block}
+.add-field{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:15px;color:var(--text);background:var(--bg);margin-bottom:10px;outline:none;font-family:inherit}
+.add-field:focus{border-color:var(--cyan)}
+.btn-save-add{background:var(--cyan);color:#fff;border:none;border-radius:10px;padding:12px;width:100%;font-size:15px;font-weight:700;cursor:pointer}
+/* Settings */
+#settingsScreen{padding:16px;padding-bottom:40px}
+.settings-intro{background:#EFF6FF;border-radius:12px;padding:12px 14px;font-size:13px;color:#1E40AF;line-height:1.5;margin-bottom:16px}
+.nm-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.nm-empty{text-align:center;color:var(--muted);font-size:14px;padding:24px;background:var(--surface);border-radius:12px;border:1px solid var(--border)}
+.nm-item{background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:14px;display:flex;align-items:center;gap:12px}
+.nm-icon{font-size:22px;flex-shrink:0}
+.nm-info{flex:1;min-width:0}
+.nm-name{font-weight:700;font-size:15px}
+.nm-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.btn-del{background:#FEF2F2;color:var(--red);border:1px solid #FECACA;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;flex-shrink:0}
+.add-form-card{background:var(--surface);border-radius:14px;border:1px solid var(--border);padding:16px}
+.add-form-title{font-weight:700;font-size:15px;color:var(--primary);margin-bottom:14px}
+.form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;display:block}
+.form-field{width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;color:var(--text);background:var(--bg);margin-bottom:14px;outline:none;font-family:inherit}
+.form-field:focus{border-color:var(--cyan)}
+.btn-save{background:var(--primary);color:#fff;border:none;border-radius:12px;padding:14px;width:100%;font-size:16px;font-weight:700;cursor:pointer}
+.fab{position:fixed;bottom:24px;right:16px;background:var(--cyan);color:#fff;border:none;border-radius:28px;padding:14px 22px;font-size:14px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(8,145,178,.4);z-index:100}
+.fab.visible{display:flex}.fab:active{opacity:.85}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <button class="hdr-back" id="backBtn" onclick="goBack()" style="display:none">‹</button>
+  <div class="hdr-logo" id="hdrLogo">🏥</div>
+  <div class="hdr-info">
+    <div class="hdr-title" id="hdrTitle">Lista de Evacuación</div>
+    <div class="hdr-sub"   id="hdrSub">Citolab</div>
+  </div>
+  <button class="hdr-gear" id="gearBtn" onclick="openSettings()">⚙️</button>
+</div>
+
+<!-- Diagnostic modal -->
+<div class="modal-bg" id="diagModal">
+  <div class="modal">
+    <h2>🔍 Diagnóstico del archivo</h2>
+    <div id="diagContent"></div>
+    <button class="btn-modal-close" onclick="closeDiag()">Cerrar y enviar info a RRHH</button>
+  </div>
+</div>
+
+<!-- Upload -->
+<div id="uploadScreen" class="screen active">
+  <div class="upload-icon">📋</div>
+  <div class="upload-h">Lista de Evacuación</div>
+  <p class="upload-p">Trae la nómina de asistencia cargada por RRHH, o cárgala manualmente desde un archivo.</p>
+  <button class="btn-upload" id="btnSheetUpload" onclick="updateFromSheet(false)">☁️ &nbsp;Actualizar Nómina</button>
+  <button class="btn-secondary" onclick="document.getElementById('fi1').click()">📂 &nbsp;Cargar archivo manual (respaldo)</button>
+  <button class="btn-secondary" onclick="openSettings()">⚙️ &nbsp;Configurar personas sin reloj</button>
+  <div class="upload-note">💡 "Actualizar Nómina" necesita señal la primera vez. El archivo manual acepta cualquier formato: sin extensión, CSV o Excel (.xlsx).</div>
+</div>
+
+<!-- Areas -->
+<div id="areasScreen" class="screen">
+  <div id="datePill" class="date-pill">📅 Hoy</div>
+  <div id="updatePill" class="date-pill" style="background:var(--muted);margin-left:6px;display:none"></div>
+  <div class="global-card">
+    <div class="global-ring">
+      <div class="ring-num" id="gConf">0</div>
+      <div class="ring-of">/ <span id="gTot">0</span></div>
+    </div>
+    <div class="global-right">
+      <div class="global-label">Total confirmados</div>
+      <div class="global-hint">Toca un área para hacer el barrido</div>
+      <div class="bar-track"><div class="bar-fill" id="gBar" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="area-cards" id="areaCards"></div>
+</div>
+
+<!-- Roll call -->
+<div id="rcScreen" class="screen">
+  <div class="rc-header">
+    <div>
+      <div class="rc-nums">
+        <div class="rc-big" id="rcConf">0</div>
+        <div class="rc-sep">/</div>
+        <div class="rc-tot" id="rcTot">0</div>
+      </div>
+      <div class="rc-lbl">personas confirmadas</div>
+    </div>
+    <button class="btn-all" onclick="confirmAll()">✓ Confirmar<br>todos</button>
+  </div>
+  <div id="completeBanner" class="complete-banner" style="display:none">
+    <div class="ck">✅</div><h2>¡Área completa!</h2><p id="completeTxt"></p>
+  </div>
+  <div class="section-lbl">Presentes en edificio</div>
+  <div class="worker-list" id="workerList"></div>
+  <div class="add-card">
+    <div class="add-card-trigger" onclick="toggleAddForm()">
+      <span style="font-size:22px">＋</span> Agregar persona al barrido
+    </div>
+    <div class="add-card-form" id="addForm">
+      <input class="add-field" id="addName"  type="text" placeholder="Nombre completo" autocomplete="off">
+      <input class="add-field" id="addCargo" type="text" placeholder="Cargo (opcional)" autocomplete="off">
+      <button class="btn-save-add" onclick="addPersonNow()">Agregar</button>
+    </div>
+  </div>
+  <div id="remoteBox" class="remote-box" style="display:none">
+    <div class="remote-title">⚠️ No presentes en edificio — no contar en evacuación</div>
+    <div id="remoteList"></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settingsScreen" class="screen">
+  <div class="settings-intro">☁️ ¿Sin señal o falló la nómina automática? Puedes cargar el archivo de asistencia a mano.</div>
+  <button class="btn-secondary" style="margin-bottom:20px" onclick="document.getElementById('fi2').click()">📂 &nbsp;Cargar archivo manual (respaldo)</button>
+  <div class="settings-intro">👤 Personas que <strong>no marcan asistencia</strong>. Aparecerán automáticamente identificadas con 🔕.</div>
+  <div class="nm-list" id="nmList"></div>
+  <div class="add-form-card">
+    <div class="add-form-title">➕ &nbsp;Agregar persona sin reloj</div>
+    <label class="form-label">Nombre completo</label>
+    <input class="form-field" id="nmNombre" type="text" placeholder="ej. Camilo Espinoza" autocomplete="off">
+    <label class="form-label">Área</label>
+    <input class="form-field" id="nmArea" type="text" placeholder="ej. Administración General" list="areasList" autocomplete="off">
+    <datalist id="areasList"></datalist>
+    <label class="form-label">Cargo</label>
+    <input class="form-field" id="nmCargo" type="text" placeholder="ej. Gerente General" autocomplete="off">
+    <button class="btn-save" onclick="saveNonMarker()">Guardar</button>
+  </div>
+</div>
+
+<input type="file" id="fi1" accept="*/*" onchange="loadFile(this)">
+<input type="file" id="fi2" accept="*/*" onchange="loadFile(this)">
+<button class="fab" id="fab" onclick="updateFromSheet(true)">☁️ &nbsp;Actualizar Nómina</button>
+
+<script>
+'use strict';
+let workers=[], nmMemory=[], currentArea=null, prevScreen='uploadScreen', addFormOpen=false;
+const NM_KEY='citolab_nm_v1';
+const DATA_KEY='citolab_data_v1';
+const REMOTE_KW=['teletrabajo','en terreno','terreno'];
+// TODO Clau: reemplazar si la Sheet cambia de URL o de pestaña (gid).
+const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vRWP44BXLwEU_rnv_rjyXRzb3y1CIud3PFec_QEzxamVGkpSriKN321sRUnBIkG1In-CFS4vOjqa3FN/pub?gid=445498419&single=true&output=csv';
+
+// ── localStorage + memory fallback ─────────────────────────────────────────────
+function nmLoad(){try{const v=localStorage.getItem(NM_KEY);if(v)nmMemory=JSON.parse(v);}catch(e){}return nmMemory;}
+function nmSave(arr){nmMemory=arr;try{localStorage.setItem(NM_KEY,JSON.stringify(arr));}catch(e){}}
+
+// ── Persistencia de la última nómina cargada (para modo offline real) ──────────
+let lastMeta=null; // {updatedAt, source}
+function persistData(source){
+  lastMeta={updatedAt:new Date().toISOString(),source};
+  try{
+    localStorage.setItem(DATA_KEY,JSON.stringify({workers,meta:lastMeta}));
+  }catch(e){/* si falla el guardado, la sesión sigue funcionando en memoria igual */}
+}
+function loadPersistedData(){
+  try{
+    const v=localStorage.getItem(DATA_KEY);
+    if(!v)return null;
+    const parsed=JSON.parse(v);
+    if(!parsed.workers||!parsed.workers.length)return null;
+    return parsed;
+  }catch(e){return null;}
+}
+function fmtTimestamp(iso){
+  if(!iso)return '';
+  const d=new Date(iso);
+  const pad=n=>String(n).padStart(2,'0');
+  return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function renderUpdatePill(){
+  const el=document.getElementById('updatePill');
+  if(!el)return;
+  if(!lastMeta){el.style.display='none';return;}
+  el.style.display='inline-flex';
+  const icon=lastMeta.source==='sheet'?'☁️':'📂';
+  el.textContent=icon+' '+fmtTimestamp(lastMeta.updatedAt);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function stripA(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+function isRemote(ub){return ub?REMOTE_KW.some(k=>ub.toLowerCase().includes(k)):false;}
+function fmt(n){return n.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');}
+
+// ── Delimiter detection ────────────────────────────────────────────────────────
+function detectDelim(line){
+  const t=(line.match(/\t/g)||[]).length;
+  const s=(line.match(/;/g)||[]).length;
+  const c=(line.match(/,/g)||[]).length;
+  if(t>=s&&t>=c)return '\t';
+  if(s>=c)return ';';
+  return ',';
+}
+
+// ── CSV line split (handles quoted fields) ─────────────────────────────────────
+function splitLine(line,delim){
+  if(!line.includes('"'))return line.split(delim).map(c=>c.trim());
+  const out=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){inQ=!inQ;}
+    else if(ch===delim&&!inQ){out.push(cur.trim());cur='';}
+    else cur+=ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+// ── Decode buffer trying multiple encodings ────────────────────────────────────
+function decodeBuffer(buf){
+  const bytes=new Uint8Array(buf);
+  // UTF-16 LE BOM
+  if(bytes[0]===0xFF&&bytes[1]===0xFE)
+    return new TextDecoder('utf-16le').decode(buf).replace(/^\uFEFF/,'');
+  // UTF-16 BE BOM
+  if(bytes[0]===0xFE&&bytes[1]===0xFF)
+    return new TextDecoder('utf-16be').decode(buf).replace(/^\uFEFF/,'');
+  // UTF-8 BOM
+  if(bytes[0]===0xEF&&bytes[1]===0xBB&&bytes[2]===0xBF)
+    return new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/,'');
+  // Try UTF-8 first, then Windows-1252 (common in Spanish systems)
+  const encodings=['utf-8','windows-1252','iso-8859-1'];
+  for(const enc of encodings){
+    try{
+      const t=new TextDecoder(enc,{fatal:true}).decode(buf);
+      return t.replace(/^\uFEFF/,'');
+    }catch(e){}
+  }
+  // Last resort: non-fatal utf-8
+  return new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/,'');
+}
+
+// ── Main parser ────────────────────────────────────────────────────────────────
+function parseText(text){
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+                   .split('\n').filter(l=>l.trim());
+  if(lines.length<2)return {workers:[],diag:{error:'Archivo vacío o con menos de 2 líneas',lines:lines.length}};
+
+  const delim=detectDelim(lines[0]);
+  const hdrRaw=splitLine(lines[0],delim);
+  const hdr=hdrRaw.map(h=>h.replace(/^"|"$/g,'').trim());
+
+  // Build index: exact + stripped-lowercase
+  const ix={};
+  hdr.forEach((h,i)=>{ix[h]=i;ix[stripA(h).toLowerCase()]=i;});
+  const col=name=>{
+    if(ix[name]!==undefined)return ix[name];
+    return ix[stripA(name).toLowerCase()];
+  };
+
+  // Check required columns
+  const tipoIdx=col('Tipo');
+  const colIdx=col('Colaborador');
+  const rutIdx=col('Rut');
+
+  // Falla rápido y visible si el archivo no trae las columnas mínimas esperadas
+  // (por ejemplo, si el sistema de origen cambia el formato del reporte).
+  if(tipoIdx===undefined||colIdx===undefined||rutIdx===undefined){
+    return {workers:[],diag:{
+      error:'Faltan columnas obligatorias en el archivo',
+      columnasEncontradas:hdr.join(' | '),
+      colTipo:tipoIdx!==undefined?'✅':'❌ NO encontrada',
+      colColaborador:colIdx!==undefined?'✅':'❌ NO encontrada',
+      colRut:rutIdx!==undefined?'✅':'❌ NO encontrada'
+    }};
+  }
+
+  // Collect "Tipo" unique values for diagnosis
+  const tipoVals=new Set();
+  const seen=new Map();
+
+  lines.slice(1).forEach(line=>{
+    if(!line.trim())return;
+    const c=splitLine(line,delim).map(v=>v.replace(/^"|"$/g,'').trim());
+    const tipoRaw=tipoIdx!==undefined?c[tipoIdx]?.trim():'';
+    if(tipoRaw)tipoVals.add(tipoRaw);
+    // Case-insensitive match for "Entrada"
+    if(!tipoRaw||tipoRaw.toLowerCase()!=='entrada')return;
+    const rut=rutIdx!==undefined?c[rutIdx]?.trim():'';
+    if(!rut||rut.toLowerCase()==='rut'||seen.has(rut))return;
+    const ub=(col('Ubicacion')!==undefined?c[col('Ubicacion')]:'') || (col('Ubicación')!==undefined?c[col('Ubicación')]:'') || '';
+    seen.set(rut,{
+      rut,
+      nombre:colIdx!==undefined?(c[colIdx]||''):'',
+      area:(col('Área')!==undefined?c[col('Área')]:'')||(col('Area')!==undefined?c[col('Area')]:'')|| 'Sin área',
+      cargo:(col('Cargo')!==undefined?c[col('Cargo')]||'':''),
+      ubicacion:ub.trim(),
+      fecha:(col('Fecha')!==undefined?c[col('Fecha')]||'':''),
+      confirmed:false,remote:isRemote(ub.trim()),manual:false
+    });
+  });
+
+  const result=[...seen.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  const diag={
+    totalLines:lines.length,
+    delimitador:delim==='\t'?'TAB':delim===';'?'Punto y coma (;)':'Coma (,)',
+    columnas:hdr.join(' | '),
+    colTipo:tipoIdx!==undefined?'✅ encontrada (col '+tipoIdx+')':'❌ NO encontrada',
+    colColaborador:colIdx!==undefined?'✅ encontrada':'❌ NO encontrada',
+    valoresTipo:[...tipoVals].join(', ')||'(ninguno)',
+    registrosEntrada:result.length
+  };
+  return {workers:result,diag};
+}
+
+// ── File loading ───────────────────────────────────────────────────────────────
+function loadFile(input){
+  const f=input.files[0];
+  if(!f)return;
+  input.value='';
+  const r=new FileReader();
+  r.onload=e=>{
+    let text;
+    try{text=decodeBuffer(e.target.result);}
+    catch(err){showDiag({error:'No se pudo decodificar el archivo: '+err.message});return;}
+    const {workers:parsed,diag}=parseText(text);
+    if(!parsed.length){
+      showDiag(diag);
+      return;
+    }
+    workers=parsed;
+    mergeNonMarkersIntoWorkers();
+    persistData('manual');
+    renderAreas();
+    showScreen('areasScreen');
+    document.getElementById('fab').classList.add('visible');
+    setHeader('Lista de Evacuación','Citolab',false);
+    document.getElementById('gearBtn').style.display='';
+    alert('✅ '+workers.filter(w=>!w.remote&&!w.manual).length+' personas cargadas correctamente (archivo manual)');
+  };
+  r.readAsArrayBuffer(f);
+}
+
+// ── Actualización desde la Sheet publicada de RRHH ──────────────────────────────
+async function updateFromSheet(isRefresh){
+  const btn=document.getElementById('btnSheetUpload');
+  const fab=document.getElementById('fab');
+  const busyEl=isRefresh?fab:btn;
+  const originalTxt=busyEl?busyEl.innerHTML:null;
+  if(busyEl){busyEl.innerHTML='⏳ &nbsp;Actualizando...';busyEl.disabled=true;}
+  try{
+    // cache:'no-store' + parámetro anti-caché: para no recibir una copia vieja
+    // servida por el propio navegador o por algún caché intermedio.
+    const res=await fetch(SHEET_CSV_URL+'&_ts='+Date.now(),{cache:'no-store'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const buf=await res.arrayBuffer();
+    const text=decodeBuffer(buf);
+    const {workers:parsed,diag}=parseText(text);
+    if(!parsed.length){showDiag(diag);return;}
+    workers=parsed;
+    mergeNonMarkersIntoWorkers();
+    persistData('sheet');
+    renderAreas();renderUpdatePill();
+    showScreen('areasScreen');
+    document.getElementById('fab').classList.add('visible');
+    setHeader('Lista de Evacuación','Citolab',false);
+    document.getElementById('gearBtn').style.display='';
+    alert('✅ Nómina actualizada: '+workers.filter(w=>!w.remote&&!w.manual).length+' personas');
+  }catch(err){
+    if(lastMeta){
+      alert('⚠️ No se pudo conectar con la nómina de RRHH.\nMostrando la última copia guardada ('+fmtTimestamp(lastMeta.updatedAt)+').');
+    }else{
+      alert('⚠️ No se pudo conectar con la nómina de RRHH y no hay ninguna copia guardada todavía.\nUsa "Cargar archivo manual" mientras se resuelve la conexión.');
+    }
+  }finally{
+    if(busyEl){busyEl.innerHTML=originalTxt;busyEl.disabled=false;}
+  }
+}
+
+// ── Diagnostic modal ───────────────────────────────────────────────────────────
+function showDiag(diag){
+  const rows=Object.entries(diag).map(([k,v])=>`
+    <div class="diag-row">
+      <span class="diag-lbl">${k}</span>
+      <span class="diag-val">${v}</span>
+    </div>`).join('');
+  document.getElementById('diagContent').innerHTML=`
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      No se encontraron registros. Esta info ayuda a identificar el problema:
+    </p>
+    ${rows}
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5">
+      📸 Toma una captura de pantalla de esto y mándala a RRHH.
+    </p>`;
+  document.getElementById('diagModal').classList.add('open');
+}
+function closeDiag(){document.getElementById('diagModal').classList.remove('open');}
+
+// ── Non-markers ────────────────────────────────────────────────────────────────
+function mergeNonMarkersIntoWorkers(){
+  workers=workers.filter(w=>!w.manual);
+  nmLoad().forEach(nm=>{
+    const exists=workers.some(w=>w.nombre.toLowerCase()===nm.nombre.toLowerCase());
+    if(!exists)workers.push({
+      rut:'NM_'+nm.id,nmId:nm.id,nombre:nm.nombre.toUpperCase(),
+      area:nm.area,cargo:nm.cargo,ubicacion:'',fecha:workers[0]?.fecha??'',
+      confirmed:false,remote:false,manual:true
+    });
+  });
+  workers.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+}
+function saveNonMarker(){
+  const nombre=document.getElementById('nmNombre').value.trim();
+  const area=document.getElementById('nmArea').value.trim();
+  const cargo=document.getElementById('nmCargo').value.trim();
+  if(!nombre){alert('Escribe el nombre');return;}
+  if(!area){alert('Escribe el área');return;}
+  const arr=nmLoad();arr.push({id:Date.now(),nombre,area,cargo});nmSave(arr);
+  document.getElementById('nmNombre').value='';
+  document.getElementById('nmArea').value='';
+  document.getElementById('nmCargo').value='';
+  renderSettings();
+  if(workers.length)mergeNonMarkersIntoWorkers();
+  alert('✅ '+nombre+' guardado/a');
+}
+function deleteNonMarker(id){
+  nmSave(nmLoad().filter(n=>n.id!==id));
+  workers=workers.filter(w=>w.nmId!==id);
+  renderSettings();if(workers.length)renderAreas();
+}
+
+// ── Screen management ──────────────────────────────────────────────────────────
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function setHeader(title,sub,showBack){
+  document.getElementById('hdrTitle').textContent=title;
+  document.getElementById('hdrSub').textContent=sub;
+  document.getElementById('backBtn').style.display=showBack?'':'none';
+  document.getElementById('hdrLogo').textContent=showBack?'👥':'🏥';
+}
+
+// ── Areas ──────────────────────────────────────────────────────────────────────
+function getAreaMap(){
+  const m=new Map();
+  workers.forEach(w=>{
+    if(!m.has(w.area))m.set(w.area,{name:w.area,all:[],inBldg:[],conf:0});
+    const a=m.get(w.area);a.all.push(w);
+    if(!w.remote){a.inBldg.push(w);if(w.confirmed)a.conf++;}
+  });
+  return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+}
+function renderAreas(){
+  const areas=getAreaMap();
+  const inBAll=workers.filter(w=>!w.remote);
+  const confAll=inBAll.filter(w=>w.confirmed).length;
+  document.getElementById('datePill').textContent='📅 '+(workers.find(w=>!w.manual)?.fecha||'Hoy');
+  renderUpdatePill();
+  document.getElementById('gConf').textContent=confAll;
+  document.getElementById('gTot').textContent=inBAll.length;
+  document.getElementById('gBar').style.width=(inBAll.length?confAll/inBAll.length*100:0)+'%';
+  const cont=document.getElementById('areaCards');cont.innerHTML='';
+  areas.forEach(a=>{
+    const done=a.inBldg.length>0&&a.conf===a.inBldg.length;
+    const going=a.conf>0&&!done;
+    const icon=done?'✅':going?'🔄':'📋';
+    const extras=[];
+    const remN=a.all.filter(w=>w.remote).length;
+    const nmN=a.all.filter(w=>w.manual).length;
+    if(remN)extras.push(remN+' fuera edificio');
+    if(nmN)extras.push(nmN+' sin reloj 🔕');
+    const card=document.createElement('div');
+    card.className='area-card'+(done?' done':going?' going':'');
+    card.onclick=()=>openArea(a.name);
+    card.innerHTML=`
+      <div class="area-icon">${icon}</div>
+      <div class="area-info">
+        <div class="area-name">${a.name}</div>
+        <div class="area-sub">${a.conf}/${a.inBldg.length} confirmados${extras.length?' · '+extras.join(' · '):''}
+        </div>
+      </div>
+      <div class="area-badge${done?' done':''}">${a.conf}/${a.inBldg.length}</div>
+      <div class="chevron">›</div>`;
+    cont.appendChild(card);
+  });
+}
+
+// ── Roll call ──────────────────────────────────────────────────────────────────
+function openArea(name){
+  currentArea=name;addFormOpen=false;
+  document.getElementById('addForm').classList.remove('open');
+  document.getElementById('addName').value='';document.getElementById('addCargo').value='';
+  setHeader(name,'Pase de lista',true);renderRollCall();showScreen('rcScreen');
+}
+function renderRollCall(){
+  const aw=workers.filter(w=>w.area===currentArea);
+  const inBldg=aw.filter(w=>!w.remote);
+  const remote=aw.filter(w=>w.remote);
+  const conf=inBldg.filter(w=>w.confirmed).length;
+  document.getElementById('rcConf').textContent=conf;
+  document.getElementById('rcTot').textContent=inBldg.length;
+  const allDone=inBldg.length>0&&conf===inBldg.length;
+  document.getElementById('completeBanner').style.display=allDone?'':'none';
+  if(allDone)document.getElementById('completeTxt').textContent=conf+' personas confirmadas en zona segura';
+  const list=document.getElementById('workerList');list.innerHTML='';
+  inBldg.forEach(w=>{
+    const div=document.createElement('div');
+    div.className='worker'+(w.confirmed?' yes':'');
+    div.onclick=()=>{w.confirmed=!w.confirmed;renderRollCall();renderAreas();};
+    div.innerHTML=`
+      <div class="worker-chk">${w.confirmed?'✓':''}</div>
+      <div class="worker-body">
+        <div class="worker-name">${fmt(w.nombre)}</div>
+        <div class="worker-cargo">${w.cargo}</div>
+      </div>
+      <div class="loc-tag${w.manual?' manual':''}">${w.manual?'🔕 Sin reloj':w.ubicacion}</div>`;
+    list.appendChild(div);
+  });
+  const remBox=document.getElementById('remoteBox');
+  if(remote.length){
+    remBox.style.display='';
+    document.getElementById('remoteList').innerHTML=remote.map(w=>
+      `<div class="remote-item">• ${fmt(w.nombre)} <span style="color:var(--amber);font-size:12px">(${w.ubicacion})</span></div>`
+    ).join('');
+  }else remBox.style.display='none';
+}
+function confirmAll(){
+  workers.filter(w=>w.area===currentArea&&!w.remote).forEach(w=>{w.confirmed=true;});
+  renderRollCall();renderAreas();
+}
+function toggleAddForm(){
+  addFormOpen=!addFormOpen;
+  document.getElementById('addForm').classList.toggle('open',addFormOpen);
+  if(addFormOpen)document.getElementById('addName').focus();
+}
+function addPersonNow(){
+  const nombre=document.getElementById('addName').value.trim();
+  const cargo=document.getElementById('addCargo').value.trim();
+  if(!nombre){alert('Escribe el nombre');return;}
+  workers.push({rut:'TMP_'+Date.now(),nombre:nombre.toUpperCase(),area:currentArea,
+    cargo,ubicacion:'',fecha:workers[0]?.fecha??'',confirmed:false,remote:false,manual:false,temp:true});
+  workers.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  document.getElementById('addName').value='';document.getElementById('addCargo').value='';
+  addFormOpen=false;document.getElementById('addForm').classList.remove('open');
+  renderRollCall();renderAreas();
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────────
+function openSettings(){
+  prevScreen=document.querySelector('.screen.active')?.id??'uploadScreen';
+  setHeader('Personas sin reloj','Configuración',true);
+  document.getElementById('gearBtn').style.display='none';
+  const areas=[...new Set([...workers.map(w=>w.area),...nmLoad().map(n=>n.area)])].sort();
+  document.getElementById('areasList').innerHTML=areas.map(a=>`<option value="${a}">`).join('');
+  renderSettings();showScreen('settingsScreen');
+}
+function renderSettings(){
+  const arr=nmLoad();
+  const cont=document.getElementById('nmList');
+  if(!arr.length){cont.innerHTML='<div class="nm-empty">Aún no hay personas configuradas.</div>';return;}
+  cont.innerHTML='';
+  arr.forEach(nm=>{
+    const div=document.createElement('div');div.className='nm-item';
+    div.innerHTML=`
+      <div class="nm-icon">🔕</div>
+      <div class="nm-info">
+        <div class="nm-name">${nm.nombre}</div>
+        <div class="nm-meta">${nm.area} · ${nm.cargo||'Sin cargo'}</div>
+      </div>
+      <button class="btn-del" onclick="deleteNonMarker(${nm.id})">Eliminar</button>`;
+    cont.appendChild(div);
+  });
+}
+
+// ── Back ───────────────────────────────────────────────────────────────────────
+function goBack(){
+  document.getElementById('gearBtn').style.display='';
+  if(document.getElementById('settingsScreen').classList.contains('active')){
+    if(prevScreen==='areasScreen'){setHeader('Lista de Evacuación','Citolab',false);renderAreas();showScreen('areasScreen');}
+    else{setHeader('Lista de Evacuación','Citolab',false);showScreen('uploadScreen');}
+  }else{
+    currentArea=null;setHeader('Lista de Evacuación','Citolab',false);renderAreas();showScreen('areasScreen');
+  }
+}
+
+// ── Arranque ─────────────────────────────────────────────────────────────────
+nmLoad();
+(function initFromCache(){
+  const saved=loadPersistedData();
+  if(saved){
+    workers=saved.workers;
+    lastMeta=saved.meta;
+    mergeNonMarkersIntoWorkers();
+    renderAreas();
+    showScreen('areasScreen');
+    document.getElementById('fab').classList.add('visible');
+    setHeader('Lista de Evacuación','Citolab',false);
+  }
+})();
+
+// ── Service Worker: deja la app instalable y disponible sin internet ──────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{
+      // Si falla el registro (ej. abierto como file:// en vez de https), la app
+      // sigue funcionando normal, solo sin la capa offline del shell.
+    });
+  });
+}
+</script>
+</body>
+</html>
