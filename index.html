@@ -235,6 +235,39 @@ const REMOTE_KW=['teletrabajo','en terreno','terreno'];
 // TODO Clau: reemplazar si la Sheet cambia de URL o de pestaña (gid).
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vRWP44BXLwEU_rnv_rjyXRzb3y1CIud3PFec_QEzxamVGkpSriKN321sRUnBIkG1In-CFS4vOjqa3FN/pub?gid=445498419&single=true&output=csv';
 
+// ── Siembra de personas sin reloj (no marcan asistencia) ────────────────────────
+// Se aplica una sola vez por teléfono. Si el equipo cambia, hay que subir una
+// nueva versión con más personas y una SEED_KEY nueva (ej. citolab_nm_seed_v2).
+const SEED_KEY='citolab_nm_seed_v1';
+const DEFAULT_NM=[
+  {nombre:'Camilo Espinoza Carrasco', area:'Administración General', cargo:'Gerente General'},
+  {nombre:'Cecilia Espinoza Carrasco', area:'Administración General', cargo:'Subdirectora'},
+  {nombre:'Felipe Bustos Palma', area:'Administración General', cargo:'Subgerente de Adm y Finanzas'},
+  {nombre:'Arturo Espinoza Negrete', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Iván Gallegos Méndez', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Oscar Tapia Escalona', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Leonardo Bull Cuevas', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Danilo Alfaro Cárcamo', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Orieta Navarrete Fernández', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Renato Sandoval Salas', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Cristina Fernández Ferradas', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Fancy Gaete Verdejo', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'Cyntia Escobar Farfán', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'},
+  {nombre:'German Correa Araya', area:'Diagnóstico de Biopsias', cargo:'Anatomopatólogo'}
+];
+function seedDefaultNM(){
+  try{
+    if(localStorage.getItem(SEED_KEY))return; // ya se sembró en este teléfono
+    const arr=nmLoad();
+    DEFAULT_NM.forEach(d=>{
+      const exists=arr.some(n=>n.nombre.toLowerCase()===d.nombre.toLowerCase());
+      if(!exists)arr.push({id:Date.now()+Math.random(),nombre:d.nombre,area:d.area,cargo:d.cargo});
+    });
+    nmSave(arr);
+    localStorage.setItem(SEED_KEY,'1');
+  }catch(e){/* si localStorage falla, simplemente no se siembra en este teléfono */}
+}
+
 // ── localStorage + memory fallback ─────────────────────────────────────────────
 function nmLoad(){try{const v=localStorage.getItem(NM_KEY);if(v)nmMemory=JSON.parse(v);}catch(e){}return nmMemory;}
 function nmSave(arr){nmMemory=arr;try{localStorage.setItem(NM_KEY,JSON.stringify(arr));}catch(e){}}
@@ -667,6 +700,7 @@ function goBack(){
 
 // ── Arranque ─────────────────────────────────────────────────────────────────
 nmLoad();
+seedDefaultNM();
 (function initFromCache(){
   const saved=loadPersistedData();
   if(saved){
