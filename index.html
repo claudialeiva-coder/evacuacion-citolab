@@ -231,6 +231,7 @@ input[type=file]{display:none}
 let workers=[], nmMemory=[], currentArea=null, prevScreen='uploadScreen', addFormOpen=false;
 const NM_KEY='citolab_nm_v1';
 const DATA_KEY='citolab_data_v1';
+const CONFIRM_KEY='citolab_confirm_v1';
 const REMOTE_KW=['teletrabajo','en terreno','terreno'];
 // TODO Clau: reemplazar si la Sheet cambia de URL o de pestaña (gid).
 const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vRWP44BXLwEU_rnv_rjyXRzb3y1CIud3PFec_QEzxamVGkpSriKN321sRUnBIkG1In-CFS4vOjqa3FN/pub?gid=445498419&single=true&output=csv';
@@ -294,6 +295,29 @@ function fmtTimestamp(iso){
   const d=new Date(iso);
   const pad=n=>String(n).padStart(2,'0');
   return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+
+// ── Confirmados del pase de lista: se guardan solos, y se reinician cada día ───
+function todayKey(){
+  const d=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function saveConfirmState(){
+  try{
+    const ruts=workers.filter(w=>w.confirmed).map(w=>w.rut);
+    localStorage.setItem(CONFIRM_KEY,JSON.stringify({date:todayKey(),ruts}));
+  }catch(e){/* si falla el guardado, el pase de lista sigue funcionando en memoria igual */}
+}
+function applyConfirmState(){
+  try{
+    const v=localStorage.getItem(CONFIRM_KEY);
+    if(!v)return;
+    const saved=JSON.parse(v);
+    if(saved.date!==todayKey())return; // es de un día distinto: hoy todos parten sin confirmar
+    const set=new Set(saved.ruts);
+    workers.forEach(w=>{if(set.has(w.rut))w.confirmed=true;});
+  }catch(e){}
 }
 function renderUpdatePill(){
   const el=document.getElementById('updatePill');
@@ -447,6 +471,7 @@ function loadFile(input){
     }
     workers=parsed;
     mergeNonMarkersIntoWorkers();
+    applyConfirmState();
     persistData('manual');
     renderAreas();
     showScreen('areasScreen');
@@ -476,6 +501,7 @@ async function updateFromSheet(isRefresh){
     if(!parsed.length){showDiag(diag);return;}
     workers=parsed;
     mergeNonMarkersIntoWorkers();
+    applyConfirmState();
     persistData('sheet');
     renderAreas();renderUpdatePill();
     showScreen('areasScreen');
@@ -621,7 +647,7 @@ function renderRollCall(){
   inBldg.forEach(w=>{
     const div=document.createElement('div');
     div.className='worker'+(w.confirmed?' yes':'');
-    div.onclick=()=>{w.confirmed=!w.confirmed;renderRollCall();renderAreas();};
+    div.onclick=()=>{w.confirmed=!w.confirmed;saveConfirmState();renderRollCall();renderAreas();};
     div.innerHTML=`
       <div class="worker-chk">${w.confirmed?'✓':''}</div>
       <div class="worker-body">
@@ -641,6 +667,7 @@ function renderRollCall(){
 }
 function confirmAll(){
   workers.filter(w=>w.area===currentArea&&!w.remote).forEach(w=>{w.confirmed=true;});
+  saveConfirmState();
   renderRollCall();renderAreas();
 }
 function toggleAddForm(){
@@ -698,6 +725,32 @@ function goBack(){
   }
 }
 
+// ── Chequeo automático al abrir (silencioso, sin botón) ────────────────────────
+// Solo actúa si nadie ha empezado a confirmar personas todavía. Si ya hay un
+// pase de lista en curso, no toca nada — eso queda solo para el botón manual.
+async function silentRefreshFromSheet(){
+  if(workers.some(w=>w.confirmed))return; // hay un pase de lista real en curso, no interferir
+  try{
+    const res=await fetch(SHEET_CSV_URL+'&_ts='+Date.now(),{cache:'no-store'});
+    if(!res.ok)return;
+    const buf=await res.arrayBuffer();
+    const text=decodeBuffer(buf);
+    const{workers:parsed}=parseText(text);
+    if(!parsed.length)return; // archivo con problemas: mejor no reemplazar por una lista vacía
+    workers=parsed;
+    mergeNonMarkersIntoWorkers();
+    applyConfirmState();
+    persistData('sheet');
+    renderAreas();
+    if(!document.getElementById('areasScreen').classList.contains('active')){
+      showScreen('areasScreen');
+      document.getElementById('fab').classList.add('visible');
+      setHeader('Lista de Evacuación','Citolab',false);
+      document.getElementById('gearBtn').style.display='';
+    }
+  }catch(e){/* sin señal: se queda con lo que ya había, sin avisos ni errores en pantalla */}
+}
+
 // ── Arranque ─────────────────────────────────────────────────────────────────
 nmLoad();
 seedDefaultNM();
@@ -707,11 +760,13 @@ seedDefaultNM();
     workers=saved.workers;
     lastMeta=saved.meta;
     mergeNonMarkersIntoWorkers();
+    applyConfirmState();
     renderAreas();
     showScreen('areasScreen');
     document.getElementById('fab').classList.add('visible');
     setHeader('Lista de Evacuación','Citolab',false);
   }
+  silentRefreshFromSheet();
 })();
 
 // ── Service Worker: deja la app instalable y disponible sin internet ──────────
