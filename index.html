@@ -91,6 +91,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .remote-box{background:#FEF3C7;border:1px solid #FCD34D;border-radius:12px;padding:14px;margin-top:14px}
 .remote-title{font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px}
 .remote-item{font-size:13px;padding:3px 0}
+.retired-box{background:#F1F1F4;border:1px solid #D1D5DB;border-radius:12px;padding:14px;margin-top:14px}
+.retired-title{font-size:13px;font-weight:700;color:#4B5563;margin-bottom:8px}
+.retired-item{font-size:13px;padding:3px 0;color:#4B5563}
 .add-card{background:var(--surface);border-radius:12px;border:2px dashed var(--border);margin-top:8px}
 .add-card-trigger{padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--cyan);font-weight:600;font-size:15px}
 .add-card-form{padding:0 14px 14px;display:none}.add-card-form.open{display:block}
@@ -200,6 +203,10 @@ input[type=file]{display:none}
   <div id="remoteBox" class="remote-box" style="display:none">
     <div class="remote-title">⚠️ No presentes en edificio — no contar en evacuación</div>
     <div id="remoteList"></div>
+  </div>
+  <div id="retiredBox" class="retired-box" style="display:none">
+    <div class="retired-title">🚪 Se retiraron hoy — ya no están en el edificio</div>
+    <div id="retiredList"></div>
   </div>
 </div>
 
@@ -418,26 +425,60 @@ function parseText(text){
 
   // Collect "Tipo" unique values for diagnosis
   const tipoVals=new Set();
-  const seen=new Map();
+  // Agrupamos TODAS las marcas por rut (no solo "Entrada"), para poder mirar
+  // cuál fue la última marca del día de cada persona, no solo la primera.
+  const byRut=new Map();
+  const evtIdx=col('Evento');
+  const horaIdx=col('Hora');
+  const hasEventoHora=evtIdx!==undefined&&horaIdx!==undefined;
 
   lines.slice(1).forEach(line=>{
     if(!line.trim())return;
     const c=splitLine(line,delim).map(v=>v.replace(/^"|"$/g,'').trim());
     const tipoRaw=tipoIdx!==undefined?c[tipoIdx]?.trim():'';
     if(tipoRaw)tipoVals.add(tipoRaw);
-    // Case-insensitive match for "Entrada"
-    if(!tipoRaw||tipoRaw.toLowerCase()!=='entrada')return;
     const rut=rutIdx!==undefined?c[rutIdx]?.trim():'';
-    if(!rut||rut.toLowerCase()==='rut'||seen.has(rut))return;
+    if(!rut||rut.toLowerCase()==='rut')return;
     const ub=(col('Ubicacion')!==undefined?c[col('Ubicacion')]:'') || (col('Ubicación')!==undefined?c[col('Ubicación')]:'') || '';
-    seen.set(rut,{
-      rut,
+    const rec={
+      tipo:tipoRaw,
+      evento:hasEventoHora?(c[evtIdx]||'').trim():'',
+      hora:hasEventoHora?(c[horaIdx]||'').trim():'',
       nombre:colIdx!==undefined?(c[colIdx]||''):'',
       area:(col('Área')!==undefined?c[col('Área')]:'')||(col('Area')!==undefined?c[col('Area')]:'')|| 'Sin área',
       cargo:(col('Cargo')!==undefined?c[col('Cargo')]||'':''),
       ubicacion:ub.trim(),
-      fecha:(col('Fecha')!==undefined?c[col('Fecha')]||'':''),
-      confirmed:false,remote:isRemote(ub.trim()),manual:false
+      fecha:(col('Fecha')!==undefined?c[col('Fecha')]||'':'')
+    };
+    if(!byRut.has(rut))byRut.set(rut,[]);
+    byRut.get(rut).push(rec);
+  });
+
+  const seen=new Map();
+  byRut.forEach((recs,rut)=>{
+    const hasEntrada=recs.some(r=>r.tipo.toLowerCase()==='entrada');
+    if(!hasEntrada)return; // nunca marcó entrada hoy: no corresponde incluirla
+    // Ordenamos por hora (texto HH:MM:SS, orden alfabético = orden cronológico)
+    const ordered=hasEventoHora?[...recs].sort((a,b)=>a.hora.localeCompare(b.hora)):recs;
+    const last=ordered[ordered.length-1];
+    const lastEntrada=[...ordered].reverse().find(r=>r.tipo.toLowerCase()==='entrada')||ordered[0];
+    // "Se retiró" solo cuenta cuando la ÚLTIMA marca del día es Salida de Fin de
+    // Jornada. Una salida a colación (almuerzo) no cuenta: la persona sigue
+    // dentro del edificio, en el comedor. Ante la duda, el error debe ser hacia
+    // el lado seguro: tratar como presente, no como ausente.
+    const retired=hasEventoHora&&last.tipo.toLowerCase()==='salida'&&stripA(last.evento).toLowerCase().trim()==='fin jornada';
+    seen.set(rut,{
+      rut,
+      nombre:lastEntrada.nombre,
+      area:lastEntrada.area,
+      cargo:lastEntrada.cargo,
+      ubicacion:lastEntrada.ubicacion,
+      fecha:lastEntrada.fecha,
+      confirmed:false,
+      remote:retired?false:isRemote(lastEntrada.ubicacion),
+      manual:false,
+      retired,
+      retiroHora:retired?last.hora:''
     });
   });
 
@@ -448,6 +489,7 @@ function parseText(text){
     columnas:hdr.join(' | '),
     colTipo:tipoIdx!==undefined?'✅ encontrada (col '+tipoIdx+')':'❌ NO encontrada',
     colColaborador:colIdx!==undefined?'✅ encontrada':'❌ NO encontrada',
+    colEventoHora:hasEventoHora?'✅ encontradas (se detectan retiros)':'❌ NO encontradas (no se detectan retiros, solo primera entrada)',
     valoresTipo:[...tipoVals].join(', ')||'(ninguno)',
     registrosEntrada:result.length
   };
@@ -547,7 +589,7 @@ function mergeNonMarkersIntoWorkers(){
     if(!exists)workers.push({
       rut:'NM_'+nm.id,nmId:nm.id,nombre:nm.nombre.toUpperCase(),
       area:nm.area,cargo:nm.cargo,ubicacion:'',fecha:workers[0]?.fecha??'',
-      confirmed:false,remote:false,manual:true
+      confirmed:false,remote:false,manual:true,retired:false
     });
   });
   workers.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
@@ -587,13 +629,13 @@ function getAreaMap(){
   workers.forEach(w=>{
     if(!m.has(w.area))m.set(w.area,{name:w.area,all:[],inBldg:[],conf:0});
     const a=m.get(w.area);a.all.push(w);
-    if(!w.remote){a.inBldg.push(w);if(w.confirmed)a.conf++;}
+    if(!w.remote&&!w.retired){a.inBldg.push(w);if(w.confirmed)a.conf++;}
   });
   return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'es'));
 }
 function renderAreas(){
   const areas=getAreaMap();
-  const inBAll=workers.filter(w=>!w.remote);
+  const inBAll=workers.filter(w=>!w.remote&&!w.retired);
   const confAll=inBAll.filter(w=>w.confirmed).length;
   document.getElementById('datePill').textContent='📅 '+(workers.find(w=>!w.manual)?.fecha||'Hoy');
   renderUpdatePill();
@@ -607,8 +649,10 @@ function renderAreas(){
     const icon=done?'✅':going?'🔄':'📋';
     const extras=[];
     const remN=a.all.filter(w=>w.remote).length;
+    const retN=a.all.filter(w=>w.retired).length;
     const nmN=a.all.filter(w=>w.manual).length;
     if(remN)extras.push(remN+' fuera edificio');
+    if(retN)extras.push(retN+(retN===1?' se retiró':' se retiraron'));
     if(nmN)extras.push(nmN+' sin reloj 🔕');
     const card=document.createElement('div');
     card.className='area-card'+(done?' done':going?' going':'');
@@ -635,8 +679,9 @@ function openArea(name){
 }
 function renderRollCall(){
   const aw=workers.filter(w=>w.area===currentArea);
-  const inBldg=aw.filter(w=>!w.remote);
+  const inBldg=aw.filter(w=>!w.remote&&!w.retired);
   const remote=aw.filter(w=>w.remote);
+  const retired=aw.filter(w=>w.retired);
   const conf=inBldg.filter(w=>w.confirmed).length;
   document.getElementById('rcConf').textContent=conf;
   document.getElementById('rcTot').textContent=inBldg.length;
@@ -664,9 +709,16 @@ function renderRollCall(){
       `<div class="remote-item">• ${fmt(w.nombre)} <span style="color:var(--amber);font-size:12px">(${w.ubicacion})</span></div>`
     ).join('');
   }else remBox.style.display='none';
+  const retBox=document.getElementById('retiredBox');
+  if(retired.length){
+    retBox.style.display='';
+    document.getElementById('retiredList').innerHTML=retired.map(w=>
+      `<div class="retired-item">• ${fmt(w.nombre)} <span style="font-size:12px">(salió ${w.retiroHora})</span></div>`
+    ).join('');
+  }else retBox.style.display='none';
 }
 function confirmAll(){
-  workers.filter(w=>w.area===currentArea&&!w.remote).forEach(w=>{w.confirmed=true;});
+  workers.filter(w=>w.area===currentArea&&!w.remote&&!w.retired).forEach(w=>{w.confirmed=true;});
   saveConfirmState();
   renderRollCall();renderAreas();
 }
@@ -680,7 +732,7 @@ function addPersonNow(){
   const cargo=document.getElementById('addCargo').value.trim();
   if(!nombre){alert('Escribe el nombre');return;}
   workers.push({rut:'TMP_'+Date.now(),nombre:nombre.toUpperCase(),area:currentArea,
-    cargo,ubicacion:'',fecha:workers[0]?.fecha??'',confirmed:false,remote:false,manual:false,temp:true});
+    cargo,ubicacion:'',fecha:workers[0]?.fecha??'',confirmed:false,remote:false,manual:false,temp:true,retired:false});
   workers.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
   document.getElementById('addName').value='';document.getElementById('addCargo').value='';
   addFormOpen=false;document.getElementById('addForm').classList.remove('open');

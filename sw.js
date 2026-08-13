@@ -2,7 +2,7 @@
 // Estrategia: stale-while-revalidate para el shell de la app.
 // Sube CACHE_VERSION cada vez que subas una nueva versión de index.html,
 // para forzar que los teléfonos ya instalados descarguen la actualización.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = 'evac-citolab-' + CACHE_VERSION;
 
 const SHELL_FILES = [
