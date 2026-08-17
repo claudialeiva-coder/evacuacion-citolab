@@ -337,6 +337,15 @@ function renderUpdatePill(){
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function stripA(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+// Convierte "6:48:00" o "16:01:20" a segundos desde medianoche, para poder
+// ordenar horas cronológicamente sin importar si viene con o sin cero adelante
+// (Google Sheets a veces le saca el cero a las horas de un solo dígito).
+function horaToSeconds(h){
+  if(!h)return -1;
+  const p=h.trim().split(':').map(n=>parseInt(n,10));
+  const hh=p[0]||0,mm=p[1]||0,ss=p[2]||0;
+  return hh*3600+mm*60+ss;
+}
 function isRemote(ub){return ub?REMOTE_KW.some(k=>ub.toLowerCase().includes(k)):false;}
 function fmt(n){return n.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');}
 
@@ -459,7 +468,7 @@ function parseText(text){
     const hasEntrada=recs.some(r=>r.tipo.toLowerCase()==='entrada');
     if(!hasEntrada)return; // nunca marcó entrada hoy: no corresponde incluirla
     // Ordenamos por hora (texto HH:MM:SS, orden alfabético = orden cronológico)
-    const ordered=hasEventoHora?[...recs].sort((a,b)=>a.hora.localeCompare(b.hora)):recs;
+    const ordered=hasEventoHora?[...recs].sort((a,b)=>horaToSeconds(a.hora)-horaToSeconds(b.hora)):recs;
     const last=ordered[ordered.length-1];
     const lastEntrada=[...ordered].reverse().find(r=>r.tipo.toLowerCase()==='entrada')||ordered[0];
     // "Se retiró" solo cuenta cuando la ÚLTIMA marca del día es Salida de Fin de
